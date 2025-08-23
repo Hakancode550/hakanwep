@@ -1,12 +1,216 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Hakan’ın Dünyası</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sadece Biz • Panel</title>
+<style>
+  :root{--p:#6d28d9;--bg:#ffe6f1;--card:#fff;--txt:#2d2a32}
+  *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,Segoe UI,Arial;
+    color:var(--txt);background:linear-gradient(135deg,#ffe6f1,#ffd7ec)}
+  header{position:sticky;top:0;background:linear-gradient(90deg,#6d28d9,#7c3aed);
+    color:#fff;padding:14px 16px;box-shadow:0 6px 20px rgba(109,40,217,.25);z-index:2}
+  header h1{margin:0;font-size:18px}
+  .bar{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  button, .ghost{border:0;border-radius:12px;padding:10px 14px;cursor:pointer;font-weight:600}
+  .tabbtn{background:#fff;color:#4c1d95;box-shadow:0 4px 14px rgba(0,0,0,.08)}
+  .tabbtn.active{background:#ede9fe}
+  .ghost{background:transparent;color:#fff;opacity:.95}
+  main{max-width:980px;margin:18px auto;padding:0 14px 80px}
+  .card{background:var(--card);border-radius:16px;box-shadow:0 10px 36px rgba(0,0,0,.08);padding:16px;margin:12px 0}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  input[type="file"]{display:none}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:12px}
+  .grid img{width:100%;height:140px;object-fit:cover;border-radius:12px;box-shadow:0 6px 16px rgba(0,0,0,.08)}
+  textarea{width:100%;min-height:180px;border:1px solid #e5e7eb;border-radius:12px;padding:12px;font-size:15px}
+  .muted{font-size:13px;color:#6b7280}
+  .list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+  .item{background:#fafafa;border:1px solid #eee;border-radius:12px;padding:10px}
+  .right{margin-left:auto}
+</style>
 </head>
 <body>
-  <h1>Merhaba Hakan! 👋</h1>
-  <p>Bu senin yeni web siten 🚀</p>
+<header>
+  <h1>🌸 Sadece Biz • Kontrol Paneli</h1>
+  <div class="bar">
+    <button class="tabbtn active" data-tab="tab-gallery">🖼️ Resimler</button>
+    <button class="tabbtn" data-tab="tab-notes">📝 Not Defteri</button>
+    <button class="tabbtn" data-tab="tab-calendar">📅 Takvim</button>
+    <span class="ghost right">Veriler bu cihazda saklanır • localStorage</span>
+  </div>
+</header>
+
+<main>
+  <!-- 🖼️ Resimler -->
+  <section id="tab-gallery" class="card">
+    <h2>🖼️ Resimler</h2>
+    <div class="row">
+      <label for="pick" class="tabbtn">➕ Resim Ekle</label>
+      <input id="pick" type="file" accept="image/*" multiple />
+      <button id="exportImages" class="tabbtn">⬇️ Dışa aktar (JSON)</button>
+      <label for="importImages" class="tabbtn">⬆️ İçe aktar</label>
+      <input id="importImages" type="file" accept="application/json" />
+      <button id="clearImages" class="tabbtn">🗑️ Hepsini Sil</button>
+    </div>
+    <p class="muted">Seçtiğin resimler galeriye eklenir ve tarayıcında saklanır.</p>
+    <div id="gallery" class="grid"></div>
+  </section>
+
+  <!-- 📝 Not Defteri -->
+  <section id="tab-notes" class="card" hidden>
+    <h2>📝 Not Defteri</h2>
+    <textarea id="notes" placeholder="Bir şeyler yaz... (otomatik kaydedilir)"></textarea>
+    <div class="row">
+      <button id="clearNotes" class="tabbtn">🗑️ Notu Temizle</button>
+      <button id="exportNotes" class="tabbtn">⬇️ Notu İndir (TXT)</button>
+    </div>
+  </section>
+
+  <!-- 📅 Takvim -->
+  <section id="tab-calendar" class="card" hidden>
+    <h2>📅 Takvim</h2>
+    <div class="row">
+      <input id="evTitle" placeholder="Etkinlik başlığı" class="tabbtn" style="background:#fff;flex:1;border:1px solid #eee"/>
+      <input id="evDate" type="date" class="tabbtn" style="background:#fff;border:1px solid #eee"/>
+      <button id="addEvent" class="tabbtn">➕ Ekle</button>
+      <button id="exportEvents" class="tabbtn">⬇️ Dışa aktar (JSON)</button>
+      <label for="importEvents" class="tabbtn">⬆️ İçe aktar</label>
+      <input id="importEvents" type="file" accept="application/json" />
+      <button id="clearEvents" class="tabbtn">🗑️ Temizle</button>
+    </div>
+    <div id="events" class="list"></div>
+  </section>
+</main>
+
+<script>
+/* ====== küçük yardımcılar ====== */
+const $ = s => document.querySelector(s);
+const KEY = {
+  IMAGES: 'sb_images_v1',
+  NOTES: 'sb_notes_v1',
+  EVENTS: 'sb_events_v1'
+};
+const readLS = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } }
+const writeLS = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+
+/* ====== sekmeler ====== */
+document.querySelectorAll('.tabbtn[data-tab]').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('.tabbtn[data-tab]').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    const t = b.dataset.tab;
+    document.querySelectorAll('main section').forEach(s=>s.hidden = s.id !== t);
+  });
+});
+
+/* ====== RESİMLER ====== */
+const galleryEl = $('#gallery');
+function renderGallery(){
+  const imgs = readLS(KEY.IMAGES, []);
+  galleryEl.innerHTML = '';
+  imgs.forEach((src, i)=>{
+    const img = new Image();
+    img.src = src; img.alt = 'resim-'+i;
+    galleryEl.appendChild(img);
+  });
+}
+$('#pick').addEventListener('change', async (e)=>{
+  const files = [...e.target.files];
+  if(!files.length) return;
+  const existing = readLS(KEY.IMAGES, []);
+  for(const f of files){
+    const data = await fileToDataURL(f);   // DataURL olarak saklıyoruz
+    existing.push(data);
+  }
+  writeLS(KEY.IMAGES, existing);
+  e.target.value = '';
+  renderGallery();
+});
+function fileToDataURL(file){
+  return new Promise(res=>{
+    const r = new FileReader();
+    r.onload = ()=>res(r.result);
+    r.readAsDataURL(file);
+  });
+}
+$('#clearImages').addEventListener('click', ()=>{
+  if(confirm('Tüm resimleri silmek istiyor musun?')){ writeLS(KEY.IMAGES, []); renderGallery(); }
+});
+$('#exportImages').addEventListener('click', ()=>{
+  const blob = new Blob([JSON.stringify(readLS(KEY.IMAGES, []))], {type:'application/json'});
+  downloadBlob(blob, 'resimler.json');
+});
+$('#importImages').addEventListener('change', async (e)=>{
+  const f = e.target.files[0]; if(!f) return;
+  const text = await f.text();
+  const arr = JSON.parse(text);
+  if(Array.isArray(arr)){ writeLS(KEY.IMAGES, arr); renderGallery(); }
+  e.target.value = '';
+});
+
+/* ====== NOT DEFTERİ ====== */
+const notesEl = $('#notes');
+notesEl.value = readLS(KEY.NOTES, '');
+notesEl.addEventListener('input', ()=>writeLS(KEY.NOTES, notesEl.value));
+$('#clearNotes').addEventListener('click', ()=>{
+  if(confirm('Notu temizlemek istiyor musun?')){ notesEl.value=''; writeLS(KEY.NOTES,''); }
+});
+$('#exportNotes').addEventListener('click', ()=>{
+  const blob = new Blob([notesEl.value], {type:'text/plain;charset=utf-8'});
+  downloadBlob(blob, 'not.txt');
+});
+
+/* ====== TAKVİM ====== */
+const evTitle = $('#evTitle'), evDate = $('#evDate'), evList = $('#events');
+function renderEvents(){
+  const items = readLS(KEY.EVENTS, []);
+  items.sort((a,b)=>a.date.localeCompare(b.date));
+  evList.innerHTML = '';
+  items.forEach((ev, i)=>{
+    const div = document.createElement('div'); div.className='item';
+    div.innerHTML = `<strong>${ev.date}</strong> – ${ev.title}
+      <button data-i="${i}" class="tabbtn right" style="padding:6px 10px">Sil</button>`;
+    evList.appendChild(div);
+  });
+  evList.querySelectorAll('button[data-i]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const idx = +btn.dataset.i;
+      const it = readLS(KEY.EVENTS, []);
+      it.splice(idx,1); writeLS(KEY.EVENTS, it); renderEvents();
+    });
+  });
+}
+$('#addEvent').addEventListener('click', ()=>{
+  if(!evTitle.value || !evDate.value) return alert('Başlık ve tarih gerekli.');
+  const it = readLS(KEY.EVENTS, []);
+  it.push({title: evTitle.value.trim(), date: evDate.value});
+  writeLS(KEY.EVENTS, it);
+  evTitle.value=''; evDate.value='';
+  renderEvents();
+});
+$('#clearEvents').addEventListener('click', ()=>{
+  if(confirm('Tüm etkinlikler silinsin mi?')){ writeLS(KEY.EVENTS, []); renderEvents(); }
+});
+$('#exportEvents').addEventListener('click', ()=>{
+  const blob = new Blob([JSON.stringify(readLS(KEY.EVENTS, []))], {type:'application/json'});
+  downloadBlob(blob, 'etkinlikler.json');
+});
+$('#importEvents').addEventListener('change', async (e)=>{
+  const f=e.target.files[0]; if(!f) return;
+  const text=await f.text(); const arr=JSON.parse(text);
+  if(Array.isArray(arr)){ writeLS(KEY.EVENTS, arr); renderEvents(); }
+  e.target.value='';
+});
+
+/* ====== ortak indir helper ====== */
+function downloadBlob(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+
+/* ilk render */
+renderGallery(); renderEvents();
+</script>
 </body>
 </html>
