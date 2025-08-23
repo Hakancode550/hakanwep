@@ -208,7 +208,428 @@ function downloadBlob(blob, filename){
   const a = document.createElement('a'); a.href = url; a.download = filename;
   document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sadece Biz • Kontrol Paneli</title>
+<style>
+  :root{
+    --bg1:#f9d5e7; --bg2:#f7e7ff; --ink:#2d2a32; --sub:#626076;
+    --pri:#6f3cff; --pri2:#a05cff; --ok:#1aa37a;
+    --card:#ffffffee; --chip:#f2ecff; --btn:#6f3cff; --btnText:#fff;
+    --br:18px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif;
+    color:var(--ink); background:linear-gradient(135deg,var(--bg1),var(--bg2)) fixed; min-height:100svh;
+  }
+  header{
+    position:sticky; top:0; z-index:10; color:#fff;
+    background:linear-gradient(90deg,var(--pri),var(--pri2));
+    padding:14px 16px; box-shadow:0 6px 20px rgba(0,0,0,.08)
+  }
+  .brand{font-weight:800; font-size:18px; letter-spacing:.2px; display:flex; gap:10px; align-items:center}
+  .nav{display:flex; gap:10px; flex-wrap:wrap; padding:10px 0}
+  .tab{
+    background:#ffffff22; color:#fff; border:1px solid #ffffff4a; padding:10px 14px;
+    border-radius:999px; font-weight:600; cursor:pointer; backdrop-filter:saturate(140%) blur(2px)
+  }
+  .tab.active{background:#fff; color:#4b2ad6}
+  .wrap{max-width:980px; margin:18px auto; padding:0 14px 28px}
+  .note{color:var(--sub); font-size:13px; margin:8px 2px}
+  .card{
+    background:var(--card); border-radius:var(--br); padding:18px; box-shadow:0 14px 40px rgba(30,16,80,.08);
+    margin-top:14px
+  }
+  h2{margin:0 0 10px 0; font-size:24px}
+  .controls{display:flex; flex-wrap:wrap; gap:10px; margin:10px 0 14px}
+  button,.btn{
+    border:0; background:var(--btn); color:var(--btnText);
+    padding:10px 14px; border-radius:10px; font-weight:700; cursor:pointer
+  }
+  button.ghost{background:#ece7ff; color:#4b2ad6}
+  input[type="file"], input[type="text"], input[type="url"], textarea, input[type="date"]{
+    width:100%; padding:12px 12px; border:1px solid #ded8ff; border-radius:10px; background:#fff
+  }
+  .grid{display:grid; gap:12px}
+  @media(min-width:640px){ .grid.cols-2{grid-template-columns:1fr 1fr} }
+  .thumb{width:100%; border-radius:12px; box-shadow:0 10px 26px rgba(0,0,0,.08)}
+  .row{display:flex; align-items:center; justify-content:space-between; gap:10px}
+  .list{display:flex; flex-direction:column; gap:10px}
+  .item{background:#fff; border:1px solid #eee; border-radius:12px; padding:10px 12px}
+  .item .t{font-weight:700}
+  .pill{display:inline-flex; align-items:center; gap:8px; background:var(--chip); color:#4b2ad6;
+    padding:8px 10px; border-radius:999px; font-weight:700}
+  small.muted{color:var(--sub)}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">🌸 <span>Sadece Biz • Kontrol Paneli</span></div>
+  <div class="nav" id="tabs">
+    <button class="tab active" data-tab="photos">🖼️ Resimler</button>
+    <button class="tab" data-tab="notes">📝 Not Defteri</button>
+    <button class="tab" data-tab="calendar">📅 Takvim</button>
+    <button class="tab" data-tab="music">🎵 Müzik Listesi</button>
+    <button class="tab" data-tab="inspo">💡 İlham Defteri</button>
+    <button class="tab" data-tab="fav">⭐ Favoriler</button>
+  </div>
+  <div class="note">Veriler bu cihazda saklanır • <code>localStorage</code></div>
+</header>
 
+<div class="wrap">
+
+  <!-- ===== RESİMLER ===== -->
+  <section id="tab-photos" class="card">
+    <div class="row">
+      <h2>🖼️ Resimler</h2>
+      <span class="pill"><span id="count-photos">0</span> kayıt</span>
+    </div>
+    <div class="controls">
+      <label class="btn">
+        + Resim Ekle
+        <input id="photoInput" type="file" accept="image/*" multiple class="hidden">
+      </label>
+      <button class="ghost" id="expPhotos">⬇️ Dışa aktar (JSON)</button>
+      <label class="ghost btn">
+        ⬆️ İçe aktar
+        <input id="impPhotos" type="file" accept="application/json" class="hidden">
+      </label>
+    </div>
+    <div id="gallery" class="grid cols-2"></div>
+    <small class="note">Seçtiğin resimler galeriye eklenir ve tarayıcında saklanır.</small>
+  </section>
+
+  <!-- ===== NOT DEFTERİ ===== -->
+  <section id="tab-notes" class="card hidden">
+    <div class="row">
+      <h2>📝 Not Defteri</h2>
+      <span class="pill"><span id="count-notes">0</span> not</span>
+    </div>
+    <div class="controls">
+      <input id="noteText" type="text" placeholder="Bir not yaz ve Ekle’ye bas (Enter de olur)…">
+      <button id="addNote">Ekle</button>
+      <button class="ghost" id="expNotes">⬇️ Dışa aktar</button>
+      <label class="ghost btn">⬆️ İçe aktar <input id="impNotes" type="file" accept="application/json" class="hidden"></label>
+    </div>
+    <div id="noteList" class="list"></div>
+  </section>
+
+  <!-- ===== TAKVİM (basit) ===== -->
+  <section id="tab-calendar" class="card hidden">
+    <div class="row">
+      <h2>📅 Takvim</h2>
+      <span class="pill"><span id="count-events">0</span> etkinlik</span>
+    </div>
+    <div class="grid cols-2">
+      <input id="evDate" type="date">
+      <input id="evTitle" type="text" placeholder="Etkinlik başlığı">
+    </div>
+    <div class="controls">
+      <button id="addEvent">Ekle</button>
+      <button class="ghost" id="expEvents">⬇️ Dışa aktar</button>
+      <label class="ghost btn">⬆️ İçe aktar <input id="impEvents" type="file" accept="application/json" class="hidden"></label>
+    </div>
+    <div id="eventList" class="list"></div>
+  </section>
+
+  <!-- ===== MÜZİK ===== -->
+  <section id="tab-music" class="card hidden">
+    <div class="row">
+      <h2>🎵 Müzik Listesi</h2>
+      <span class="pill"><span id="count-music">0</span> parça</span>
+    </div>
+    <div class="grid cols-2">
+      <input id="songTitle" type="text" placeholder="Şarkı adı">
+      <input id="songUrl" type="url" placeholder="MP3 bağlantısı (veya dosya yükle)">
+    </div>
+    <div class="controls">
+      <label class="btn">+ Dosya seç (mp3)
+        <input id="songFile" type="file" accept="audio/mpeg" class="hidden">
+      </label>
+      <button id="addSong">Listeye ekle</button>
+      <button class="ghost" id="expMusic">⬇️ Dışa aktar</button>
+      <label class="ghost btn">⬆️ İçe aktar <input id="impMusic" type="file" accept="application/json" class="hidden"></label>
+    </div>
+    <audio id="player" controls style="width:100%; border-radius:12px"></audio>
+    <div id="musicList" class="list" style="margin-top:10px"></div>
+    <small class="note">Dosya yüklersen veri bu cihazda Base64 olarak saklanır; bağlantı girersen akış olarak çalınır.</small>
+  </section>
+
+  <!-- ===== İLHAM DEFTERİ ===== -->
+  <section id="tab-inspo" class="card hidden">
+    <div class="row">
+      <h2>💡 İlham Defteri</h2>
+      <span class="pill"><span id="count-inspo">0</span> ilham</span>
+    </div>
+    <textarea id="inspoText" rows="4" placeholder="Aklına gelen fikri / hissi yaz…"></textarea>
+    <div class="controls">
+      <button id="addInspo">Kaydet</button>
+      <button class="ghost" id="expInspo">⬇️ Dışa aktar</button>
+      <label class="ghost btn">⬆️ İçe aktar <input id="impInspo" type="file" accept="application/json" class="hidden"></label>
+    </div>
+    <div id="inspoList" class="list"></div>
+  </section>
+
+  <!-- ===== FAVORİLER ===== -->
+  <section id="tab-fav" class="card hidden">
+    <div class="row">
+      <h2>⭐ Favoriler</h2>
+      <span class="pill"><span id="count-fav">0</span> kayıt</span>
+    </div>
+    <div class="grid cols-2">
+      <input id="favTitle" type="text" placeholder="Başlık (örn. Sevdiğim şarkı)">
+      <input id="favUrl" type="url" placeholder="https://…">
+    </div>
+    <div class="controls">
+      <button id="addFav">Ekle</button>
+      <button class="ghost" id="expFav">⬇️ Dışa aktar</button>
+      <label class="ghost btn">⬆️ İçe aktar <input id="impFav" type="file" accept="application/json" class="hidden"></label>
+    </div>
+    <div id="favList" class="list"></div>
+  </section>
+
+  <div class="note" style="margin-top:18px">© 2025 Sadece Biz – Zeliha 💜</div>
+</div>
+
+<script>
+/* ------------ Mini Depo ------------ */
+const K = {
+  photos: 'sbz_photos',
+  notes: 'sbz_notes',
+  events: 'sbz_events',
+  music: 'sbz_music',
+  inspo: 'sbz_inspo',
+  fav: 'sbz_favorites'
+};
+const load = k => JSON.parse(localStorage.getItem(k) || '[]');
+const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+
+/* ------------ Sekmeler ------------ */
+const tabs = document.querySelectorAll('.tab');
+tabs.forEach(b=>{
+  b.addEventListener('click',()=>{
+    tabs.forEach(t=>t.classList.remove('active'));
+    b.classList.add('active');
+    const id = b.dataset.tab;
+    document.querySelectorAll('section[id^="tab-"]').forEach(s => s.classList.add('hidden'));
+    document.getElementById('tab-'+id).classList.remove('hidden');
+  });
+});
+
+/* ------------ RESİMLER ------------ */
+const gallery = document.getElementById('gallery');
+const photoInput = document.getElementById('photoInput');
+const countPhotos = document.getElementById('count-photos');
+
+function renderPhotos(){
+  const arr = load(K.photos);
+  countPhotos.textContent = arr.length;
+  gallery.innerHTML = '';
+  arr.forEach(src=>{
+    const img = new Image();
+    img.src = src; img.className = 'thumb';
+    gallery.append(img);
+  });
+}
+photoInput.addEventListener('change', async (e)=>{
+  const files = [...e.target.files];
+  if(!files.length) return;
+  const arr = load(K.photos);
+  for(const f of files){
+    const b64 = await fileToDataURL(f);
+    arr.unshift(b64);
+  }
+  save(K.photos, arr);
+  renderPhotos();
+  photoInput.value = '';
+});
+document.getElementById('expPhotos').addEventListener('click',()=> downloadJSON('resimler.json', load(K.photos)));
+document.getElementById('impPhotos').addEventListener('change', async (e)=>{
+  const arr = await readJSON(e.target.files[0]); if(!arr) return;
+  const cur = load(K.photos); save(K.photos, [...arr, ...cur]); renderPhotos(); e.target.value='';
+});
+
+/* ------------ NOTLAR ------------ */
+const noteInput = document.getElementById('noteText');
+const noteList = document.getElementById('noteList');
+const countNotes = document.getElementById('count-notes');
+
+function renderNotes(){
+  const arr = load(K.notes);
+  countNotes.textContent = arr.length;
+  noteList.innerHTML='';
+  arr.forEach(n=>{
+    const div = document.createElement('div');
+    div.className='item';
+    div.innerHTML = `<div class="t">${escapeHtml(n.text)}</div><small class="muted">${n.ts}</small>`;
+    noteList.append(div);
+  });
+}
+function addNote(){
+  const t = noteInput.value.trim(); if(!t) return;
+  const arr = load(K.notes);
+  arr.unshift({text:t, ts: tsNow()});
+  save(K.notes, arr); noteInput.value=''; renderNotes();
+}
+document.getElementById('addNote').addEventListener('click', addNote);
+noteInput.addEventListener('keydown', e=>{ if(e.key==='Enter'){ addNote(); }});
+document.getElementById('expNotes').addEventListener('click',()=> downloadJSON('notlar.json', load(K.notes)));
+document.getElementById('impNotes').addEventListener('change', async (e)=>{
+  const arr = await readJSON(e.target.files[0]); if(!arr) return;
+  const cur = load(K.notes); save(K.notes, [...arr, ...cur]); renderNotes(); e.target.value='';
+});
+
+/* ------------ TAKVİM ------------ */
+const evDate = document.getElementById('evDate');
+const evTitle = document.getElementById('evTitle');
+const eventList = document.getElementById('eventList');
+const countEvents = document.getElementById('count-events');
+function renderEvents(){
+  const arr = load(K.events);
+  countEvents.textContent = arr.length;
+  eventList.innerHTML='';
+  arr.forEach(ev=>{
+    const div = document.createElement('div');
+    div.className='item';
+    div.innerHTML = `<div class="t">${escapeHtml(ev.title)}</div>
+                     <small class="muted">${ev.date}</small>`;
+    eventList.append(div);
+  });
+}
+document.getElementById('addEvent').addEventListener('click', ()=>{
+  if(!evDate.value || !evTitle.value.trim()) return;
+  const arr = load(K.events);
+  arr.unshift({date: evDate.value, title: evTitle.value.trim()});
+  save(K.events, arr); evTitle.value=''; renderEvents();
+});
+document.getElementById('expEvents').addEventListener('click',()=> downloadJSON('etkinlikler.json', load(K.events)));
+document.getElementById('impEvents').addEventListener('change', async (e)=>{
+  const arr = await readJSON(e.target.files[0]); if(!arr) return;
+  const cur = load(K.events); save(K.events, [...arr, ...cur]); renderEvents(); e.target.value='';
+});
+
+/* ------------ MÜZİK ------------ */
+const musicList = document.getElementById('musicList');
+const player = document.getElementById('player');
+const countMusic = document.getElementById('count-music');
+const songTitle = document.getElementById('songTitle');
+const songUrl = document.getElementById('songUrl');
+const songFile = document.getElementById('songFile');
+
+async function addSong(){
+  let src = songUrl.value.trim();
+  if(!src && songFile.files[0]) src = await fileToDataURL(songFile.files[0]);
+  const title = songTitle.value.trim() || 'Adsız Parça';
+  if(!src) return;
+  const arr = load(K.music);
+  arr.unshift({title, src});
+  save(K.music, arr); songTitle.value=''; songUrl.value=''; songFile.value=''; renderMusic();
+}
+function renderMusic(){
+  const arr = load(K.music);
+  countMusic.textContent = arr.length;
+  musicList.innerHTML='';
+  arr.forEach((m,i)=>{
+    const div = document.createElement('div');
+    div.className='item';
+    const btn = document.createElement('button');
+    btn.textContent = '▶︎ Oynat'; btn.className='ghost'; btn.style.marginLeft='10px';
+    btn.onclick = ()=>{ player.src = m.src; player.play(); };
+    const t = document.createElement('span'); t.className='t'; t.textContent = m.title;
+    div.append(t, btn); musicList.append(div);
+  });
+}
+document.getElementById('addSong').addEventListener('click', addSong);
+document.getElementById('expMusic').addEventListener('click',()=> downloadJSON('muzik.json', load(K.music)));
+document.getElementById('impMusic').addEventListener('change', async (e)=>{
+  const arr = await readJSON(e.target.files[0]); if(!arr) return;
+  const cur = load(K.music); save(K.music, [...arr, ...cur]); renderMusic(); e.target.value='';
+});
+
+/* ------------ İLHAM ------------ */
+const inspoText = document.getElementById('inspoText');
+const inspoList = document.getElementById('inspoList');
+const countInspo = document.getElementById('count-inspo');
+function renderInspo(){
+  const arr = load(K.inspo);
+  countInspo.textContent = arr.length;
+  inspoList.innerHTML='';
+  arr.forEach(x=>{
+    const d=document.createElement('div'); d.className='item';
+    d.innerHTML=`<div class="t">${escapeHtml(x.text)}</div><small class="muted">${x.ts}</small>`;
+    inspoList.append(d);
+  });
+}
+document.getElementById('addInspo').addEventListener('click', ()=>{
+  const t = inspoText.value.trim(); if(!t) return;
+  const arr = load(K.inspo); arr.unshift({text:t, ts:tsNow()});
+  save(K.inspo, arr); inspoText.value=''; renderInspo();
+});
+document.getElementById('expInspo').addEventListener('click',()=> downloadJSON('ilham.json', load(K.inspo)));
+document.getElementById('impInspo').addEventListener('change', async (e)=>{
+  const arr = await readJSON(e.target.files[0]); if(!arr) return;
+  const cur = load(K.inspo); save(K.inspo, [...arr, ...cur]); renderInspo(); e.target.value='';
+});
+
+/* ------------ FAVORİLER ------------ */
+const favTitle = document.getElementById('favTitle');
+const favUrl = document.getElementById('favUrl');
+const favList = document.getElementById('favList');
+const countFav = document.getElementById('count-fav');
+function renderFav(){
+  const arr = load(K.fav);
+  countFav.textContent = arr.length;
+  favList.innerHTML='';
+  arr.forEach(f=>{
+    const d=document.createElement('div'); d.className='item';
+    d.innerHTML = `<div class="t">${escapeHtml(f.title)}</div>
+                   <a href="${escapeAttr(f.url)}" target="_blank" rel="noopener">Bağlantıyı aç</a>`;
+    favList.append(d);
+  });
+}
+document.getElementById('addFav').addEventListener('click', ()=>{
+  const t=favTitle.value.trim(), u=favUrl.value.trim(); if(!t||!u) return;
+  const arr = load(K.fav); arr.unshift({title:t, url:u}); save(K.fav, arr);
+  favTitle.value=''; favUrl.value=''; renderFav();
+});
+document.getElementById('expFav').addEventListener('click',()=> downloadJSON('favoriler.json', load(K.fav)));
+document.getElementById('impFav').addEventListener('change', async (e)=>{
+  const arr = await readJSON(e.target.files[0]); if(!arr) return;
+  const cur = load(K.fav); save(K.fav, [...arr, ...cur]); renderFav(); e.target.value='';
+});
+
+/* ------------ Yardımcılar ------------ */
+function tsNow(){
+  const d=new Date();
+  return d.toLocaleString('tr-TR', { dateStyle:'medium', timeStyle:'short' });
+}
+function fileToDataURL(file){
+  return new Promise(r=>{
+    const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(file);
+  });
+}
+function downloadJSON(filename, data){
+  const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+  URL.revokeObjectURL(a.href);
+}
+async function readJSON(file){
+  if(!file) return null;
+  const txt = await file.text(); try{ return JSON.parse(txt); }catch{ alert('Geçersiz JSON'); return null; }
+}
+function escapeHtml(s){ return s.replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+function escapeAttr(s){ return s.replace(/"/g,'&quot;'); }
+
+/* ------------ İlk render ------------ */
+renderPhotos(); renderNotes(); renderEvents(); renderMusic(); renderInspo(); renderFav();
+</script>
+</body>
+</html>
 /* ilk render */
 renderGallery(); renderEvents();
 </script>
