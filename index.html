@@ -1,387 +1,107 @@
-<!DOCTYPE html>
-<html lang="tr">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sadece Biz • Kontrol Paneli (v1.1)</title>
-<style>
-/* ... (stil aynı; kısalttım) ... */
-body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial;background:linear-gradient(135deg,#fde7f2,#f7d4ff)}
-header{position:sticky;top:0;background:linear-gradient(90deg,#6d28d9,#9333ea);color:#fff;padding:14px 16px}
-.wrap{max-width:1000px;margin:18px auto;padding:0 14px 30px}
-.nav{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
-.tab-btn{border:0;background:#fff;color:#3b2aa3;padding:10px 12px;border-radius:12px;font-weight:700;cursor:pointer}
-.tab-btn.active{background:#ede9fe}
-.panel{background:#fff;border-radius:18px;padding:16px;box-shadow:0 18px 48px rgba(0,0,0,.10);margin-top:12px}
-.controls{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 12px}
-.btn{background:#6d28d9;color:#fff;border:0;padding:10px 14px;border-radius:12px;font-weight:700;cursor:pointer}
-.ghost{background:#f3f4f6;color:#111827}
-.danger{background:#ef4444}
-.small{font-size:12px;color:#6b7280}
-.grid{display:grid;gap:10px}
-.gallery{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
-.card{background:#fff;border:1px solid #eef1f6;border-radius:12px;overflow:hidden;box-shadow:0 8px 18px rgba(0,0,0,.06)}
-.card img{display:block;width:100%;height:120px;object-fit:cover}
-.card .bar{display:flex;justify-content:space-between;align-items:center;padding:6px 8px}
-.input,textarea,select{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #e5e7eb}
-.row{display:flex;gap:10px;flex-wrap:wrap}
-.col{flex:1 1 220px}
-.list{display:flex;flex-direction:column;gap:8px}
-.item{background:#fff;border:1px solid #eef1f6;border-radius:12px;padding:10px}
-.item .t{font-weight:700}
-.pill{display:inline-flex;align-items:center;gap:6px;background:#efeafe;color:#4b2ad6;padding:6px 10px;border-radius:999px;font-weight:700}
-.footer{position:fixed;left:10px;bottom:8px;font-size:12px;color:#374151}
-.hidden{display:none}
-</style>
-</head>
-<body>
-<header>
-  <h1>🌸 Sadece Biz • Kontrol Paneli <span class="small">veriler bu cihazda saklanır</span></h1>
-</header>
+name: Generate Video (Veo3 via pollo.ai)
 
-<div class="wrap">
-  <div class="nav">
-    <button class="tab-btn active" data-tab="photos">🖼️ Resimler</button>
-    <button class="tab-btn" data-tab="notes">🗒️ Not Defteri</button>
-    <button class="tab-btn" data-tab="calendar">📅 Takvim</button>
-    <button class="tab-btn" data-tab="remind">⏰ Hatırlatıcı</button>
-    <button class="tab-btn" data-tab="timeline">📊 Zaman Çizelgesi</button>
-    <button class="tab-btn" data-tab="todo">✅ Görev Listesi</button>
-    <button class="tab-btn" data-tab="journal">📜 Anı Defteri</button>
-    <button class="tab-btn" data-tab="avatar">👤 Avatar</button>
-  </div>
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: "Video açıklaması (prompt)"
+        required: true
+        type: string
+      negativePrompt:
+        description: "Negatif prompt (opsiyonel)"
+        required: false
+        default: ""
+        type: string
+      image:
+        description: "Referans görsel URL/base64 (opsiyonel)"
+        required: false
+        default: ""
+        type: string
+      length:
+        description: "Süre (sn)"
+        required: true
+        default: "8"
+        type: number
+      aspectRatio:
+        description: "En/Boy oranı"
+        required: true
+        default: "16:9"
+        type: choice
+        options: ["16:9","9:16","1:1","4:3","21:9"]
+      resolution:
+        description: "Çözünürlük"
+        required: true
+        default: "720p"
+        type: choice
+        options: ["480p","720p","1080p"]
+      seed:
+        description: "Seed (sayı, opsiyonel)"
+        required: false
+        default: "123"
+        type: number
+      generateAudio:
+        description: "Ses üret (true/false)"
+        required: true
+        default: "true"
+        type: choice
+        options: ["true","false"]
+      webhookUrl:
+        description: "Webhook URL (opsiyonel)"
+        required: false
+        default: ""
+        type: string
 
-  <div class="controls">
-    <button class="ghost btn" id="expAll">⬇️ Tümünü Dışa Aktar</button>
-    <label class="ghost btn">⬆️ Tümünü İçe Aktar
-      <input id="impAll" type="file" accept="application/json" class="hidden">
-    </label>
-  </div>
+jobs:
+  make-video:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  <!-- Resimler -->
-  <section id="tab-photos" class="panel">
-    <div class="controls">
-      <label class="btn">➕ Resim Ekle
-        <input id="addPhoto" type="file" accept="image/*" multiple class="hidden">
-      </label>
-      <button class="ghost btn" id="expPhotos">⬇️ Dışa aktar</button>
-      <label class="ghost btn">⬆️ İçe aktar
-        <input id="impPhotos" type="file" accept="application/json" class="hidden">
-      </label>
-      <button class="danger btn" id="clearPhotos">🗑️ Hepsini Sil</button>
-    </div>
-    <div id="gallery" class="grid gallery"></div>
-  </section>
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
 
-  <!-- Notlar -->
-  <section id="tab-notes" class="panel" hidden>
-    <div class="row">
-      <div class="col"><input id="noteTitle" class="input" placeholder="Başlık…"></div>
-      <div class="col"><button class="btn" id="addNote">➕ Not Ekle</button></div>
-    </div>
-    <textarea id="noteBody" rows="4" class="input" placeholder="Not içeriği…"></textarea>
-    <div class="controls">
-      <button class="ghost btn" id="expNotes">⬇️ Dışa aktar</button>
-      <label class="ghost btn">⬆️ İçe aktar
-        <input id="impNotes" type="file" accept="application/json" class="hidden">
-      </label>
-      <button class="danger btn" id="clearNotes">🗑️ Hepsini Sil</button>
-    </div>
-    <div id="notesList" class="list"></div>
-  </section>
+      - name: Build JSON payload
+        run: |
+          jq -n \
+            --arg prompt "${{ inputs.prompt }}" \
+            --arg negativePrompt "${{ inputs.negativePrompt }}" \
+            --arg image "${{ inputs.image }}" \
+            --arg aspect "${{ inputs.aspectRatio }}" \
+            --arg res "${{ inputs.resolution }}" \
+            --arg webhook "${{ inputs.webhookUrl }}" \
+            --argjson length ${{ inputs.length }} \
+            --argjson seed ${{ inputs.seed }} \
+            --argjson generateAudio ${{ inputs.generateAudio == 'true' }} \
+            '
+            {
+              input: {
+                prompt: $prompt,
+                negativePrompt: $negativePrompt,
+                image: $image,
+                length: $length,
+                aspectRatio: $aspect,
+                resolution: $res,
+                seed: $seed,
+                generateAudio: $generateAudio
+              },
+              webhookUrl: $webhook
+            }
+            ' > payload.json
+          echo "Payload built:"
+          cat payload.json
 
-  <!-- Takvim -->
-  <section id="tab-calendar" class="panel" hidden>
-    <div class="row">
-      <div class="col"><input id="evTitle" class="input" placeholder="Etkinlik başlığı"></div>
-      <div class="col"><input id="evDate" class="input" type="date"></div>
-      <div class="col"><button class="btn" id="addEvent">➕ Ekle</button></div>
-    </div>
-    <div id="events" class="list" style="margin-top:8px"></div>
-  </section>
+      - name: Call pollo.ai (Veo3)
+        run: |
+          curl --fail --request POST \
+            --url https://pollo.ai/api/platform/generation/google/veo3 \
+            --header "Content-Type: application/json" \
+            --header "x-api-key: ${{ secrets.POLLO_API_KEY }}" \
+            --data @payload.json \
+            | tee response.json
 
-  <!-- Hatırlatıcı -->
-  <section id="tab-remind" class="panel" hidden>
-    <div class="row">
-      <div class="col"><input id="remText" class="input" placeholder="Hatırlatma metni"></div>
-      <div class="col"><input id="remDate" class="input" type="date"></div>
-      <div class="col"><input id="remTime" class="input" type="time"></div>
-      <div class="col"><button class="btn" id="addRem">➕ Ekle</button></div>
-    </div>
-    <div id="remList" class="list" style="margin-top:8px"></div>
-  </section>
-
-  <!-- Zaman Çizelgesi -->
-  <section id="tab-timeline" class="panel" hidden>
-    <div class="row">
-      <div class="col"><input id="tlDate" class="input" type="date"></div>
-      <div class="col"><input id="tlTime" class="input" type="time"></div>
-      <div class="col"><input id="tlText" class="input" placeholder="08:00 – İşe git gibi…"></div>
-      <div class="col"><button class="btn" id="addTl">➕ Ekle</button></div>
-    </div>
-    <div id="tlList" class="list" style="margin-top:8px"></div>
-  </section>
-
-  <!-- Görev -->
-  <section id="tab-todo" class="panel" hidden>
-    <div class="row">
-      <div class="col"><input id="todoText" class="input" placeholder="Görev yaz…"></div>
-      <div class="col">
-        <select id="todoPrio" class="input">
-          <option value="normal">Öncelik: Normal</option>
-          <option value="yuksek">Öncelik: Yüksek</option>
-          <option value="dusuk">Öncelik: Düşük</option>
-        </select>
-      </div>
-      <div class="col"><button class="btn" id="addTodo">➕ Ekle</button></div>
-    </div>
-    <div id="todoList" class="list" style="margin-top:8px"></div>
-  </section>
-
-  <!-- Anı -->
-  <section id="tab-journal" class="panel" hidden>
-    <div class="row">
-      <div class="col"><input id="jrDate" class="input" type="date"></div>
-      <div class="col"><input id="jrTitle" class="input" placeholder="Başlık…"></div>
-    </div>
-    <textarea id="jrBody" rows="4" class="input" placeholder="Bugün şunu yaşadım…"></textarea>
-    <div class="controls">
-      <button class="btn" id="addJr">➕ Kaydet</button>
-      <button class="ghost btn" id="expJr">⬇️ Dışa aktar</button>
-      <label class="ghost btn">⬆️ İçe aktar
-        <input id="impJr" type="file" accept="application/json" class="hidden">
-      </label>
-      <button class="danger btn" id="clearJr">🗑️ Hepsini Sil</button>
-    </div>
-    <div id="jrList" class="list"></div>
-  </section>
-
-  <!-- Avatar -->
-  <section id="tab-avatar" class="panel" hidden>
-    <div class="row">
-      <div class="col"><input id="avName" class="input" placeholder="Adın (örn. Hakan)"></div>
-      <div class="col">
-        <label class="btn">Resim Seç
-          <input id="avFile" type="file" accept="image/*" class="hidden">
-        </label>
-      </div>
-      <div class="col"><button class="btn" id="saveAv">Kaydet</button></div>
-      <div class="col"><button class="ghost btn" id="clearAv">Temizle</button></div>
-    </div>
-    <div style="margin-top:10px;display:flex;gap:10px;align-items:center">
-      <img id="avImg" src="" alt="Avatar" style="width:110px;height:110px;border-radius:50%;object-fit:cover;border:4px solid #fff;box-shadow:0 10px 24px rgba(0,0,0,.1)">
-      <div id="avInfo" class="small"></div>
-    </div>
-  </section>
-
-  <div class="footer">SB v1.1 yüklendi</div>
-</div>
-
-<script>
-window.addEventListener('DOMContentLoaded', () => {
-  try {
-    /* ==== helpers ==== */
-    const $ = s => document.querySelector(s);
-    const save = (k,v)=>localStorage.setItem(k,JSON.stringify(v));
-    const load = k => { try { return JSON.parse(localStorage.getItem(k)) || [] } catch { return [] } };
-    const nowISO = ()=> new Date().toISOString();
-    const toLocal = s => new Date(s).toLocaleString('tr-TR',{dateStyle:'medium',timeStyle:'short'});
-    const downloadJSON=(name,obj)=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(obj,null,2)],{type:'application/json'})); a.download=name; document.body.append(a); a.click(); a.remove(); };
-    const readJSON=(file)=>new Promise((res,rej)=>{const r=new FileReader(); r.onload=()=>{try{res(JSON.parse(r.result))}catch(e){rej(e)}}; r.onerror=rej; r.readAsText(file) });
-    const escapeHTML=s=>String(s).replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
-
-    const K = {
-      photos:'sb.photos.v1', notes:'sb.notes.v1', events:'sb.events.v1',
-      remind:'sb.reminders.v1', time:'sb.timeline.v1', todo:'sb.todo.v1',
-      jr:'sb.journal.v1', av:'sb.avatar.v1'
-    };
-
-    /* ==== tabs ==== */
-    document.querySelectorAll('.tab-btn').forEach(btn=>{
-      btn.addEventListener('click',()=>{
-        document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-        btn.classList.add('active');
-        const id=btn.dataset.tab;
-        document.querySelectorAll('section[id^="tab-"]').forEach(s=>s.hidden=true);
-        $('#tab-'+id).hidden=false;
-      });
-    });
-
-    /* ==== photos ==== */
-    const gallery=$('#gallery');
-    function renderPhotos(){
-      const arr=load(K.photos);
-      gallery.innerHTML = arr.length ? '' : '<p class="small">Henüz resim yok.</p>';
-      arr.forEach((p,i)=>{
-        const card=document.createElement('div'); card.className='card';
-        const img=document.createElement('img'); img.src=p.data; img.alt=p.name||'resim';
-        const bar=document.createElement('div'); bar.className='bar';
-        const cap=document.createElement('span'); cap.textContent=p.name||'resim';
-        const del=document.createElement('button'); del.className='ghost btn'; del.textContent='Sil';
-        del.onclick=()=>{const cur=load(K.photos); cur.splice(i,1); save(K.photos,cur); renderPhotos();};
-        bar.append(cap,del); card.append(img,bar); gallery.append(card);
-      });
-    }
-    $('#addPhoto').addEventListener('change', async e=>{
-      const files=[...e.target.files]; if(!files.length) return;
-      const cur=load(K.photos);
-      for(const f of files){ const b64=await fileToDataURL(f); cur.unshift({name:f.name,data:b64,ts:nowISO()}); }
-      save(K.photos,cur); e.target.value=''; renderPhotos();
-    });
-    function fileToDataURL(file){ return new Promise((res,rej)=>{const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file)}) }
-    $('#expPhotos').onclick=()=>downloadJSON('resimler.json',load(K.photos));
-    $('#impPhotos').onchange=async e=>{ const f=e.target.files[0]; if(!f) return; const d=await readJSON(f); save(K.photos,[...d,...load(K.photos)]); renderPhotos(); e.target.value=''; };
-    $('#clearPhotos').onclick=()=>{ if(confirm('Tüm resimler silinsin mi?')){ save(K.photos,[]); renderPhotos(); } };
-
-    /* ==== notes ==== */
-    const notesList=$('#notesList');
-    function renderNotes(){
-      const arr=load(K.notes);
-      notesList.innerHTML = arr.length ? '' : '<p class="small">Henüz not yok.</p>';
-      arr.forEach((n,i)=>{
-        const d=document.createElement('div'); d.className='item';
-        d.innerHTML=`<div class="t">${escapeHTML(n.title||'Başlıksız')}</div><div>${escapeHTML(n.body||'')}</div><div class="small">${toLocal(n.ts)}</div>`;
-        const del=document.createElement('button'); del.className='ghost btn'; del.textContent='Sil';
-        del.onclick=()=>{const cur=load(K.notes); cur.splice(i,1); save(K.notes,cur); renderNotes();};
-        d.append(del); notesList.append(d);
-      });
-    }
-    $('#addNote').onclick=()=>{ const t=$('#noteTitle').value.trim(), b=$('#noteBody').value.trim(); if(!t&&!b) return alert('Boş not eklenemez'); const cur=load(K.notes); cur.unshift({title:t,body:b,ts:nowISO()}); save(K.notes,cur); $('#noteTitle').value=''; $('#noteBody').value=''; renderNotes(); };
-    $('#expNotes').onclick=()=>downloadJSON('notlar.json',load(K.notes));
-    $('#impNotes').onchange=async e=>{ const f=e.target.files[0]; if(!f) return; const d=await readJSON(f); save(K.notes,[...d,...load(K.notes)]); renderNotes(); e.target.value=''; };
-    $('#clearNotes').onclick=()=>{ if(confirm('Tüm notlar silinsin mi?')){ save(K.notes,[]); renderNotes(); } };
-
-    /* ==== calendar ==== */
-    const evList=$('#events');
-    function renderEvents(){
-      const arr=load(K.events).sort((a,b)=> (a.date||'').localeCompare(b.date||'')); 
-      evList.innerHTML = arr.length ? '' : '<p class="small">Henüz etkinlik yok.</p>';
-      arr.forEach((ev,i)=>{
-        const d=document.createElement('div'); d.className='item';
-        d.innerHTML=`<div class="t">${escapeHTML(ev.title)}</div><div class="small">${ev.date}</div>`;
-        const del=document.createElement('button'); del.className='ghost btn'; del.textContent='Sil';
-        del.onclick=()=>{const cur=load(K.events); cur.splice(i,1); save(K.events,cur); renderEvents();};
-        d.append(del); evList.append(d);
-      });
-    }
-    $('#addEvent').onclick=()=>{ const title=$('#evTitle').value.trim(); const date=$('#evDate').value; if(!title||!date) return alert('Başlık ve tarih gerekli'); const cur=load(K.events); cur.push({title,date}); save(K.events,cur); $('#evTitle').value=''; $('#evDate').value=''; renderEvents(); };
-
-    /* ==== remind ==== */
-    const remList=$('#remList');
-    function renderRem(){
-      const arr=load(K.remind).sort((a,b)=>(a.at||'').localeCompare(b.at||'')); 
-      remList.innerHTML = arr.length ? '' : '<p class="small">Henüz hatırlatma yok.</p>';
-      const now=new Date();
-      arr.forEach((r,i)=>{
-        const d=document.createElement('div'); d.className='item';
-        const due=new Date(r.at); const isDue = !isNaN(due) && due <= now;
-        if(isDue) d.style.outline='2px solid #f59e0b';
-        d.innerHTML=`<div class="t">${escapeHTML(r.text)}</div><div class="small">${toLocal(r.at)}</div>`;
-        const del=document.createElement('button'); del.className='ghost btn'; del.textContent='Sil';
-        del.onclick=()=>{const cur=load(K.remind); cur.splice(i,1); save(K.remind,cur); renderRem();};
-        d.append(del); remList.append(d);
-      });
-    }
-    $('#addRem').onclick=()=>{ const text=$('#remText').value.trim(); const dt=$('#remDate').value; const tm=$('#remTime').value; if(!text||!dt) return alert('Metin ve tarih gerekli'); const at = tm? `${dt}T${tm}:00` : `${dt}T00:00:00`; const cur=load(K.remind); cur.push({text,at}); save(K.remind,cur); $('#remText').value=''; $('#remDate').value=''; $('#remTime').value=''; renderRem(); };
-    setInterval(renderRem, 30000);
-
-    /* ==== timeline ==== */
-    const tlList=$('#tlList');
-    function renderTl(){
-      const arr=load(K.time).sort((a,b)=> ((a.date||'')+(a.time||'')).localeCompare((b.date||'')+(b.time||'')));
-      tlList.innerHTML = arr.length ? '' : '<p class="small">Henüz plan yok.</p>';
-      let last=''; 
-      arr.forEach((t,i)=>{
-        if(t.date!==last){ const h=document.createElement('div'); h.className='item'; h.innerHTML=`<div class="t">${t.date}</div>`; tlList.append(h); last=t.date; }
-        const d=document.createElement('div'); d.className='item';
-        d.innerHTML=`<div>${t.time||'--:--'} – ${escapeHTML(t.text||'')}</div>`;
-        const del=document.createElement('button'); del.className='ghost btn'; del.textContent='Sil';
-        del.onclick=()=>{const cur=load(K.time); cur.splice(i,1); save(K.time,cur); renderTl();};
-        d.append(del); tlList.append(d);
-      });
-    }
-    $('#addTl').onclick=()=>{ const date=$('#tlDate').value; const time=$('#tlTime').value; const text=$('#tlText').value.trim(); if(!date||!text) return alert('Tarih ve metin gerekli'); const cur=load(K.time); cur.push({date,time,text}); save(K.time,cur); $('#tlText').value=''; renderTl(); };
-
-    /* ==== todo ==== */
-    const todoList=$('#todoList');
-    function renderTodo(){
-      const arr=load(K.todo);
-      todoList.innerHTML = arr.length ? '' : '<p class="small">Henüz görev yok.</p>';
-      arr.forEach((t,i)=>{
-        const d=document.createElement('div'); d.className='item';
-        const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=!!t.done; cb.onchange=()=>{const cur=load(K.todo); cur[i].done=cb.checked; save(K.todo,cur); renderTodo();};
-        const span=document.createElement('span'); span.className='t'; span.textContent=` ${t.text} ${t.prio==='yuksek'?'🔥': t.prio==='dusuk'?'🌿':''}`;
-        const del=document.createElement('button'); del.className='ghost btn'; del.textContent='Sil';
-        del.onclick=()=>{const cur=load(K.todo); cur.splice(i,1); save(K.todo,cur); renderTodo();};
-        d.append(cb, span, del); todoList.append(d);
-      });
-    }
-    $('#addTodo').onclick=()=>{ const text=$('#todoText').value.trim(); const prio=$('#todoPrio').value; if(!text) return; const cur=load(K.todo); cur.unshift({text, prio, done:false, ts:nowISO()}); save(K.todo,cur); $('#todoText').value=''; renderTodo(); };
-
-    /* ==== journal ==== */
-    const jrList=$('#jrList');
-    function renderJr(){
-      const arr=load(K.jr).sort((a,b)=>(a.date||'').localeCompare(b.date||'')); 
-      jrList.innerHTML = arr.length ? '' : '<p class="small">Henüz anı yok.</p>';
-      arr.forEach((j,i)=>{
-        const d=document.createElement('div'); d.className='item';
-        d.innerHTML=`<div class="t">${escapeHTML(j.title||'Başlıksız')}</div>
-                     <div class="small">${j.date||''}</div>
-                     <div>${escapeHTML(j.body||'')}</div>`;
-        const del=document.createElement('button'); del.className='ghost btn'; del.textContent='Sil';
-        del.onclick=()=>{const cur=load(K.jr); cur.splice(i,1); save(K.jr,cur); renderJr();};
-        d.append(del); jrList.append(d);
-      });
-    }
-    $('#addJr').onclick=()=>{ const date=$('#jrDate').value; const title=$('#jrTitle').value.trim(); const body=$('#jrBody').value.trim(); const cur=load(K.jr); cur.unshift({date,title,body,ts:nowISO()}); save(K.jr,cur); $('#jrTitle').value=''; $('#jrBody').value=''; renderJr(); };
-    $('#expJr').onclick=()=>downloadJSON('ani_defteri.json',load(K.jr));
-    $('#impJr').onchange=async e=>{ const f=e.target.files[0]; if(!f) return; const d=await readJSON(f); save(K.jr,[...d,...load(K.jr)]); renderJr(); e.target.value=''; };
-    $('#clearJr').onclick=()=>{ if(confirm('Tüm anılar silinsin mi?')){ save(K.jr,[]); renderJr(); } };
-
-    /* ==== avatar ==== */
-    function renderAv(){
-      const data = JSON.parse(localStorage.getItem(K.av) || 'null');
-      const img=$('#avImg'), name=$('#avName'), info=$('#avInfo');
-      if(data){ img.src=data.photo||''; name.value=data.name||''; info.textContent = data?.name ? `Merhaba ${data.name} 💜` : ''; }
-      else { img.src=''; name.value=''; info.textContent=''; }
-    }
-    $('#saveAv').onclick=()=>{ const name=$('#avName').value.trim(); const cur = JSON.parse(localStorage.getItem(K.av) || 'null') || {}; localStorage.setItem(K.av, JSON.stringify({...cur, name})); renderAv(); };
-    $('#avFile').onchange=async e=>{ const f=e.target.files[0]; if(!f) return; const b64=await fileToDataURL(f); const cur=JSON.parse(localStorage.getItem(K.av)||'null')||{}; localStorage.setItem(K.av, JSON.stringify({...cur, photo:b64})); renderAv(); e.target.value=''; };
-    $('#clearAv').onclick=()=>{ localStorage.removeItem(K.av); renderAv(); };
-
-    /* ==== full export/import ==== */
-    $('#expAll').onclick=()=>{
-      const all={ photos:load(K.photos), notes:load(K.notes), events:load(K.events),
-                  remind:load(K.remind), time:load(K.time), todo:load(K.todo), jr:load(K.jr),
-                  av: JSON.parse(localStorage.getItem(K.av)||'null') };
-      downloadJSON(`sadecebiz_yedek_${new Date().toISOString().slice(0,10)}.json`, all);
-    };
-    $('#impAll').onchange=async e=>{
-      const f=e.target.files[0]; if(!f) return;
-      try{
-        const d=await readJSON(f);
-        if(d.photos) save(K.photos,[...d.photos,...load(K.photos)]);
-        if(d.notes)  save(K.notes, [...d.notes, ...load(K.notes)]);
-        if(d.events) save(K.events,[...d.events,...load(K.events)]);
-        if(d.remind) save(K.remind,[...d.remind,...load(K.remind)]);
-        if(d.time)   save(K.time,  [...d.time,  ...load(K.time)]);
-        if(d.todo)   save(K.todo,  [...d.todo,  ...load(K.todo)]);
-        if(d.jr)     save(K.jr,    [...d.jr,    ...load(K.jr)]);
-        if('av' in d) localStorage.setItem(K.av, JSON.stringify(d.av||{}));
-        // redraw
-        renderPhotos(); renderNotes(); renderEvents(); renderRem(); renderTl(); renderTodo(); renderJr(); renderAv();
-        alert('Yedek içe aktarıldı 💾');
-      }catch(err){ alert('İçe aktarma başarısız ❌'); }
-      e.target.value='';
-    };
-
-    /* ==== first render ==== */
-    renderPhotos(); renderNotes(); renderEvents(); renderRem(); renderTl(); renderTodo(); renderJr(); renderAv();
-
-  } catch (err) {
-    alert('Sayfa betiğinde hata var: '+ err.message);
-  }
-});
-</script>
-</body>
-</html>
+      - name: Save API response
+        uses: actions/upload-artifact@v4
+        with:
+          name: veo3-response
+          path: response.json
